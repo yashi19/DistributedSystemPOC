@@ -4,14 +4,15 @@ import org.dist.queue.server.Config
 import org.dist.queue.utils.ZkUtils.Broker
 import org.dist.queue.{TestUtils, ZookeeperTestHarness}
 import org.dist.util.Networks
-import org.dist.workshop.simplekafka.{MyBrokerChangeListener, MyZookeeperClient, MyZookeeperClientImpl}
+import org.dist.workshop.simplekafka.{MyBrokerChangeListener, MyController, MyZookeeperClient, MyZookeeperClientImpl}
 
 class MyBrokerChangeListenerTest extends ZookeeperTestHarness {
 
   test("should listen to broker changes") {
     val config = new Config(1, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
     val zookeeperClient: MyZookeeperClient = new MyZookeeperClientImpl(config)
-    val brokerListener = new MyBrokerChangeListener(zookeeperClient)
+    val controller: MyController = new MyController(zookeeperClient,config.brokerId)
+    val brokerListener = new MyBrokerChangeListener(zookeeperClient,controller)
     zookeeperClient.subscribeBrokerChangeListener(brokerListener)
 
 
@@ -21,10 +22,10 @@ class MyBrokerChangeListenerTest extends ZookeeperTestHarness {
 
 
     TestUtils.waitUntilTrue(() => {
-      brokerListener.liveBrokers.size == 3
+      controller.liveBrokers.size == 3
     }, "Waiting for all brokers to get added", 1000)
 
-    assert(brokerListener.liveBrokers.size == 3)
+    assert(controller.liveBrokers.size == 3)
   }
 
 }
