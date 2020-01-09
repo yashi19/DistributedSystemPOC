@@ -128,7 +128,8 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
   def liveOrShuttingDownBrokers = liveBrokersUnderlying
 }
 
-class Controller(val config:Config, val zkClient:ZkClient, val socketServer:SocketServer) extends Logging {
+class
+Controller(val config:Config, val zkClient:ZkClient, val socketServer:SocketServer) extends Logging {
 
   def clientId = "id_%d-host_%s-port_%d".format(config.brokerId, config.hostName, config.port)
 
