@@ -5,7 +5,8 @@ val `distributedarchitectures` = project
   .enablePlugins(DeployApp, DockerPlugin)
   .settings(defaultSettings: _*)
   .settings(
-     libraryDependencies ++= Dependencies.Dist, parallelExecution in Test := false
+     libraryDependencies ++= Dependencies.Dist, parallelExecution in Test := false,
+       libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % Test
 )
 
 
