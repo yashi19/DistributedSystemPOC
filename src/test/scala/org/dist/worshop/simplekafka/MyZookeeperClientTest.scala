@@ -13,8 +13,8 @@ class MyZookeeperClientTest extends ZookeeperTestHarness {
 
     zookeeperClient.registerBroker(Broker(0, "10.10.10.10", 8000))
 
-    assert(zookeeperClient.getAllBrokerIds().size() == 1)
-    assert(zookeeperClient.getAllBrokerIds().get(0) == "0")
+    assert(zookeeperClient.getAllBrokerIds().size == 1)
+    assert(zookeeperClient.getAllBrokerIds().contains(0))
   }
 
 }
