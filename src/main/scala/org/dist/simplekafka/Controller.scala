@@ -100,10 +100,8 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
     val leaderAndReplicas: Seq[LeaderAndReplicas] = selectLeaderAndFollowerBrokersForPartitions(topicName, partitionReplicas)
 
     zookeeperClient.setPartitionLeaderForTopic(topicName, leaderAndReplicas.toList);
-    //This is persisted in zookeeper for failover.. we are just keeping it in memory for now.
     sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas, partitionReplicas)
     sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
-
   }
 
   private def selectLeaderAndFollowerBrokersForPartitions(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
@@ -121,6 +119,8 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
   }
 
 
+
+
   private def sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas: Seq[LeaderAndReplicas]) = {
     val brokerListToIsrRequestMap =
       liveBrokers.foreach(broker ⇒ {
@@ -128,6 +128,7 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
         val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
         socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
       })
+  }
 
 
 
