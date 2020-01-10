@@ -52,11 +52,7 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int) {
   }
 
 
-  def onBecomingLeader() = {
-    liveBrokers = liveBrokers ++ zookeeperClient.getAllBrokers()
-    zookeeperClient.subscribeTopicChangeListener(new TopicChangeHandler(zookeeperClient, onTopicChange))
-    zookeeperClient.subscribeBrokerChangeListener(new MyBrokerChangeListener(zookeeperClient,this))
-  }
+
 
   def onTopicChange(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
     val leaderAndReplicas = selectLeaderAndFollowerBrokersForPartitions(topicName, partitionReplicas)

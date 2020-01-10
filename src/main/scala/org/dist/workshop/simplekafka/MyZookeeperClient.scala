@@ -20,7 +20,7 @@ trait MyZookeeperClient {
 
   def registerBroker(broker: Broker)
 
-  def getAllBrokerIds(): util.List[String]
+  def getAllBrokerIds(): Set[Int]
 
   def getBrokerInfo(brokerId: Int): Broker
 
@@ -74,8 +74,8 @@ class MyZookeeperClientImpl(config: Config) extends MyZookeeperClient {
     createEphemeralPath(zkClient, brokerPath, brokerData)
   }
 
-  override def getAllBrokerIds(): util.List[String] = {
-    zkClient.getChildren(BROKER_IDS_PATH);
+  override def getAllBrokerIds(): Set[Int] = {
+    zkClient.getChildren(BROKER_IDS_PATH).asScala.map(_.toInt).toSet
   }
 
   override def getBrokerInfo(brokerId: Int): Broker = {
