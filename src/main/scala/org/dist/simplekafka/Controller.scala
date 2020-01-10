@@ -13,6 +13,7 @@ import scala.util.control.Breaks
 
 import scala.jdk.CollectionConverters._
 
+
 class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socketServer: SimpleSocketServer) {
 
   val correlationId = new AtomicInteger(0)
@@ -62,13 +63,13 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
         }
         i = i + 1;
       })
-      if(leaderChanged) {
+      if (leaderChanged) {
         zookeeperClient.setPartitionLeaderForTopic(topicName, leaderAndReplicaList);
         newLeaderAndReplicaList = newLeaderAndReplicaList ++ leaderAndReplicaList;
       }
     })
 
-    if(newLeaderAndReplicaList.nonEmpty) {
+    if (newLeaderAndReplicaList.nonEmpty) {
       sendUpdateMetadataRequestToAllLiveBrokers(newLeaderAndReplicaList)
       sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(newLeaderAndReplicaList, partitionReplicas)
     }
@@ -100,6 +101,7 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
     val leaderAndReplicas: Seq[LeaderAndReplicas] = selectLeaderAndFollowerBrokersForPartitions(topicName, partitionReplicas)
 
     zookeeperClient.setPartitionLeaderForTopic(topicName, leaderAndReplicas.toList);
+    //This is persisted in zookeeper for failover.. we are just keeping it in memory for now.
     sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas, partitionReplicas)
     sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
   }

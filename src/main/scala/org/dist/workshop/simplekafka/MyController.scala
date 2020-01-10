@@ -12,7 +12,7 @@ import org.dist.simplekafka._
 
 import scala.jdk.CollectionConverters._
 
-class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, socketServer: SimpleSocketServer) {
+class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, socketServer: MySimpleSocketServer) {
 
   val correlationId = new AtomicInteger(0)
   var liveBrokers: Set[Broker] = Set()

@@ -5,7 +5,7 @@ import org.dist.queue.api.{RequestKeys, RequestOrResponse}
 import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.server.Config
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.simplekafka.{LeaderAndReplicaRequest, PartitionInfo, TopicMetadataRequest, TopicMetadataResponse, UpdateMetadataRequest}
+import org.dist.simplekafka._
 
 import scala.jdk.CollectionConverters._
 
@@ -43,6 +43,19 @@ class MySimpleKafkaApi(config: Config, replicaManager: MyReplicaManager) {
         }).toMap
         val topicMetadata = TopicMetadataResponse(partitionInfo)
         RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(topicMetadata), request.correlationId)
+      }
+      case RequestKeys.ProduceKey ⇒ {
+        val produceRequest: ProduceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[ProduceRequest])
+        val partition = replicaManager.getPartition(produceRequest.topicAndPartition)
+        val offset = partition.append(produceRequest.key, produceRequest.message)
+        RequestOrResponse(RequestKeys.ProduceKey, JsonSerDes.serialize(ProduceResponse(offset)), request.correlationId)
+      }
+      case RequestKeys.FetchKey ⇒ {
+        val consumeRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[ConsumeRequest])
+        val partition = replicaManager.getPartition(consumeRequest.topicAndPartition)
+        val rows = partition.read(consumeRequest.offset)
+        val consumeResponse = ConsumeResponse(rows.map(row ⇒ (row.key, row.value)).toMap)
+        RequestOrResponse(RequestKeys.FetchKey, JsonSerDes.serialize(consumeResponse), request.correlationId)
       }
 
       case _ ⇒ RequestOrResponse(0, "Unknown Request", request.correlationId)
