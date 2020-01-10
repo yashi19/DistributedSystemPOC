@@ -28,7 +28,7 @@ class MyProducerConsumerTest extends ZookeeperTestHarness {
 
     assert(broker1.controller.liveBrokers.size == 5)
 
-    new MyCreateTopicCommand(broker1.zookeeperClient).createTopic("topic1", 2, 5)
+    new MyCreateTopicCommand(broker1.zookeeperClient).createTopic("topic9", 2, 5)
 
     TestUtils.waitUntilTrue(() ⇒ {
       liveBrokersIn(broker1) == 5 && liveBrokersIn(broker2) == 5 && liveBrokersIn(broker3) == 5
@@ -38,18 +38,18 @@ class MyProducerConsumerTest extends ZookeeperTestHarness {
 
     val bootstrapBroker = InetAddressAndPort.create(broker2.config.hostName, broker2.config.port)
     val simpleProducer = new MySimpleProducer(bootstrapBroker)
-    val offset1 = simpleProducer.produce("topic1", "key1", "message1")
+    val offset1 = simpleProducer.produce("topic9", "key1", "message1")
     assert(offset1 == 1) //first offset
 
-    val offset2 = simpleProducer.produce("topic1", "key2", "message2")
+    val offset2 = simpleProducer.produce("topic9", "key2", "message2")
     assert(offset2 == 1) //first offset on different partition
 
-    val offset3 = simpleProducer.produce("topic1", "key3", "message3")
+    val offset3 = simpleProducer.produce("topic9", "key3", "message3")
 
     assert(offset3 == 2) //offset on first partition
 
     val simpleConsumer = new MySimpleConsumer(bootstrapBroker)
-    val messages = simpleConsumer.consume("topic1")
+    val messages = simpleConsumer.consume("topic9")
 
     assert(messages.size() == 3)
     assert(messages.get("key1") == "message1")

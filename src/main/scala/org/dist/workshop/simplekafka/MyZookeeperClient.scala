@@ -7,9 +7,9 @@ import org.I0Itec.zkclient.exception.{ZkNoNodeException, ZkNodeExistsException}
 import org.I0Itec.zkclient.{IZkChildListener, ZkClient}
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.server.Config
-import org.dist.queue.utils.ZKStringSerializer
+import org.dist.queue.utils.{ZKStringSerializer, ZkUtils}
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.simplekafka.{ControllerExistsException, PartitionReplicas}
+import org.dist.simplekafka.{ControllerExistsException, LeaderAndReplicas, PartitionReplicas}
 
 import scala.jdk.CollectionConverters._
 
@@ -32,6 +32,8 @@ trait MyZookeeperClient {
 
   def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas]
 
+  def setPartitionLeaderForTopic(topicName: String, leaderAndReplicas: List[LeaderAndReplicas]): Unit
+
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
 
   def shutdown()
@@ -43,6 +45,7 @@ class MyZookeeperClientImpl(config: Config) extends MyZookeeperClient {
   val BROKER_IDS_PATH = "/brokers/ids"
   val CONTROLLER_PATH = "/controllers"
   val BROKER_TOPIC_PATH = "/brokers/topics"
+  val ReplicaLeaderElectionPath = "/topics/replica/leader"
 
 
   private val zkClient = new ZkClient(config.zkConnect, config.zkSessionTimeoutMs, config.zkConnectionTimeoutMs, ZKStringSerializer)
@@ -86,6 +89,11 @@ class MyZookeeperClientImpl(config: Config) extends MyZookeeperClient {
     val data: String = zkClient.readData(getBrokerPath(brokerId))
     JsonSerDes.deserialize(data.getBytes, classOf[Broker])
   }
+  override def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas]) = {
+    val topicsPath = getTopicPath(topicName)
+    val topicsData = JsonSerDes.serialize(partitionReplicas)
+    createPersistentPath(zkClient, topicsPath, topicsData)
+  }
 
   override def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]] = {
     val result = zkClient.subscribeChildChanges(BROKER_IDS_PATH, listener)
@@ -115,7 +123,7 @@ class MyZookeeperClientImpl(config: Config) extends MyZookeeperClient {
   }
 
   override def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]] = {
-    val result = zkClient.subscribeChildChanges(BROKER_IDS_PATH, listener)
+    val result = zkClient.subscribeChildChanges(BROKER_TOPIC_PATH, listener)
     Option(result).map(_.asScala.toList)
   }
 
@@ -135,12 +143,24 @@ class MyZookeeperClientImpl(config: Config) extends MyZookeeperClient {
     }
   }
 
-
-  override def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas]) = {
-    val topicsPath = getTopicPath(topicName)
-    val topicsData = JsonSerDes.serialize(partitionReplicas)
-    createPersistentPath(zkClient, topicsPath, topicsData)
+  def getReplicaLeaderElectionPath(topicName: String) = {
+    ReplicaLeaderElectionPath + "/" + topicName
   }
+
+  override def setPartitionLeaderForTopic(topicName: String, leaderAndReplicas: List[LeaderAndReplicas]): Unit = {
+
+    val leaderReplicaSerializer = JsonSerDes.serialize(leaderAndReplicas)
+    val path = getReplicaLeaderElectionPath(topicName);
+
+    try {
+      ZkUtils.updatePersistentPath(zkClient,path, leaderReplicaSerializer)
+    } catch {
+      case e: Throwable => {
+        println("Exception while writing data to partition leader data" + e)
+      }
+    }
+  }
+
 
   override def shutdown(): Unit = {
     zkClient.close()

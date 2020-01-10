@@ -55,7 +55,7 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, so
   def onTopicChange(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
     val leaderAndReplicas = selectLeaderAndFollowerBrokersForPartitions(topicName, partitionReplicas)
     //This is persisted in zookeeper for failover.. we are just keeping it in memory for now.
-    zookeeperClient.setPartitionReplicasForTopic(topicName, partitionReplicas.toSet)
+    zookeeperClient.setPartitionLeaderForTopic(topicName, leaderAndReplicas.toList);
     sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas, partitionReplicas)
     sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
   }
