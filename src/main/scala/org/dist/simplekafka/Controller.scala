@@ -11,6 +11,8 @@ import org.dist.queue.utils.ZkUtils.Broker
 
 import scala.util.control.Breaks
 
+import scala.jdk.CollectionConverters._
+
 class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socketServer: SimpleSocketServer) {
 
   val correlationId = new AtomicInteger(0)
@@ -118,6 +120,7 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
     liveBrokers.find(b ⇒ b.id == brokerId).get
   }
 
+
   private def sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas: Seq[LeaderAndReplicas]) = {
     val brokerListToIsrRequestMap =
       liveBrokers.foreach(broker ⇒ {
@@ -125,9 +128,8 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
         val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
         socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
       })
-  }
 
-  import scala.jdk.CollectionConverters._
+
 
   @VisibleForTesting
   def sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas: Seq[LeaderAndReplicas], partitionReplicas: Seq[PartitionReplicas]) = {
