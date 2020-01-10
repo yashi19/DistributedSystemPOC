@@ -1,21 +1,18 @@
-package org.dist.simplekafka
+package org.dist.workshop.simplekafka
 
 import java.util.Random
 
-import org.dist.queue.utils.AdminUtils.rand
+import org.dist.simplekafka.{PartitionReplicas, ReplicaAssignmentStrategy, ZookeeperClient}
 
-import scala.collection.{Map, Seq, mutable}
-// It is regular class good for modeling immutable object
-case class PartitionReplicas(partitionId:Int, brokerIds:List[Int])
-
-class CreateTopicCommand(zookeeperClient:ZookeeperClient, partitionAssigner:ReplicaAssignmentStrategy = new ReplicaAssignmentStrategy()) {
+import scala.collection.mutable
+import scala.jdk.CollectionConverters._
+class MyCreateTopicCommand(zookeeperClient:MyZookeeperClient, partitionAssigner:ReplicaAssignmentStrategy = new ReplicaAssignmentStrategy()) {
   val rand = new Random
 
   def createTopic(topicName:String, noOfPartitions:Int, replicationFactor:Int) = {
     val brokerIds = zookeeperClient.getAllBrokerIds()
-    //get list of brokers
     //assign replicas to partition
-    val partitionReplicas = assignReplicasToBrokers(brokerIds.toList, noOfPartitions, replicationFactor)
+    val partitionReplicas = assignReplicasToBrokers(brokerIds.asScala.map(_.toInt).toList, noOfPartitions, replicationFactor)
     // register topic with partition assignments to zookeeper
     zookeeperClient.setPartitionReplicasForTopic(topicName, partitionReplicas)
 
@@ -72,4 +69,3 @@ class CreateTopicCommand(zookeeperClient:ZookeeperClient, partitionAssigner:Repl
     (firstReplicaIndex + shift) % nBrokers
   }
 }
-
