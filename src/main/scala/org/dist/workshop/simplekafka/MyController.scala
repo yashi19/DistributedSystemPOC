@@ -11,7 +11,7 @@ import org.dist.queue.utils.ZkUtils.Broker
 import org.dist.simplekafka.{BrokerChangeListener, ControllerExistsException, LeaderAndReplicaRequest, LeaderAndReplicas, PartitionInfo, PartitionReplicas, SimpleSocketServer, TopicChangeHandler, UpdateMetadataRequest}
 
 import scala.jdk.CollectionConverters._
-class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int) {
+class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, socketServer: SimpleSocketServer) {
 
   val correlationId = new AtomicInteger(0)
   var liveBrokers: Set[Broker] = Set()
@@ -51,24 +51,12 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int) {
     liveBrokers += broker
   }
 
-
-
-
   def onTopicChange(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
     val leaderAndReplicas = selectLeaderAndFollowerBrokersForPartitions(topicName, partitionReplicas)
     //This is persisted in zookeeper for failover.. we are just keeping it in memory for now.
-    // zookeeperClient.setPartitionReplicasForTopic(topicName,partitionReplicas.toSet)
+    zookeeperClient.setPartitionReplicasForTopic(topicName,partitionReplicas.toSet)
     sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas, partitionReplicas)
-    sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
-
-  }
-
-  private def sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas: Seq[LeaderAndReplicas]) = {val brokerListToIsrRequestMap =
-    liveBrokers.foreach(broker ⇒ {
-      val updateMetadataRequest = UpdateMetadataRequest(liveBrokers.toList, leaderAndReplicas.toList)
-      val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
-//      socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
-    })
+//    sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
   }
 
   private def selectLeaderAndFollowerBrokersForPartitions(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
@@ -81,6 +69,14 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int) {
     leaderAndReplicas
   }
 
+
+  private def sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas: Seq[LeaderAndReplicas]) = {val brokerListToIsrRequestMap =
+    liveBrokers.foreach(broker ⇒ {
+      val updateMetadataRequest = UpdateMetadataRequest(liveBrokers.toList, leaderAndReplicas.toList)
+      //      val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
+      //      socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
+    })
+  }
   private def getBroker(brokerId:Int) = {
     liveBrokers.find(b ⇒ b.id == brokerId).get
   }
@@ -99,13 +95,13 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int) {
       })
     })
 
-  //  val brokers = brokerToLeaderIsrRequest.keySet().asScala
-//    for(broker ← brokers) {
-//      val leaderAndReplicas: java.util.List[LeaderAndReplicas] = brokerToLeaderIsrRequest.get(broker)
-////  /    val leaderAndReplicaRequest = LeaderAndReplicaRequest(leaderAndReplicas.asScala.toList)
-////      val request = RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndReplicaRequest), correlationId.getAndIncrement())
-////      socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
-//    }
+    val brokers = brokerToLeaderIsrRequest.keySet().asScala
+    for(broker ← brokers) {
+      val leaderAndReplicas: java.util.List[LeaderAndReplicas] = brokerToLeaderIsrRequest.get(broker)
+      val leaderAndReplicaRequest = LeaderAndReplicaRequest(leaderAndReplicas.asScala.toList)
+      val request = RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndReplicaRequest), correlationId.getAndIncrement())
+      socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
+    }
   }
 
 }
