@@ -8,9 +8,10 @@ import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.{RequestKeys, RequestOrResponse}
 import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.simplekafka.{BrokerChangeListener, ControllerExistsException, LeaderAndReplicaRequest, LeaderAndReplicas, PartitionInfo, PartitionReplicas, SimpleSocketServer, TopicChangeHandler, UpdateMetadataRequest}
+import org.dist.simplekafka._
 
 import scala.jdk.CollectionConverters._
+
 class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, socketServer: SimpleSocketServer) {
 
   val correlationId = new AtomicInteger(0)
@@ -28,7 +29,7 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, so
   def onBecomingLeader() = {
     liveBrokers = liveBrokers ++ zookeeperClient.getAllBrokers();
     zookeeperClient.subscribeTopicChangeListener(new MyTopicChangeHandler(zookeeperClient, onTopicChange))
-    zookeeperClient.subscribeBrokerChangeListener(new MyBrokerChangeListener(zookeeperClient,this))
+    zookeeperClient.subscribeBrokerChangeListener(new MyBrokerChangeListener(zookeeperClient, this))
   }
 
   def elect() = {
@@ -54,9 +55,9 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, so
   def onTopicChange(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
     val leaderAndReplicas = selectLeaderAndFollowerBrokersForPartitions(topicName, partitionReplicas)
     //This is persisted in zookeeper for failover.. we are just keeping it in memory for now.
-//    zookeeperClient.setPartitionReplicasForTopic(topicName,partitionReplicas.toSet)
+    zookeeperClient.setPartitionReplicasForTopic(topicName, partitionReplicas.toSet)
     sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas, partitionReplicas)
-//    sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
+    sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
   }
 
   private def selectLeaderAndFollowerBrokersForPartitions(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
@@ -70,19 +71,21 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, so
   }
 
 
-  private def sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas: Seq[LeaderAndReplicas]) = {val brokerListToIsrRequestMap =
-    liveBrokers.foreach(broker ⇒ {
-      val updateMetadataRequest = UpdateMetadataRequest(liveBrokers.toList, leaderAndReplicas.toList)
-      //      val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
-      //      socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
-    })
+  private def sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas: Seq[LeaderAndReplicas]) = {
+    val brokerListToIsrRequestMap =
+      liveBrokers.foreach(broker ⇒ {
+        val updateMetadataRequest = UpdateMetadataRequest(liveBrokers.toList, leaderAndReplicas.toList)
+        val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
+        socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
+      })
   }
-  private def getBroker(brokerId:Int) = {
+
+  private def getBroker(brokerId: Int) = {
     liveBrokers.find(b ⇒ b.id == brokerId).get
   }
 
   @VisibleForTesting
-  def sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas:Seq[LeaderAndReplicas], partitionReplicas: Seq[PartitionReplicas]) = {
+  def sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas: Seq[LeaderAndReplicas], partitionReplicas: Seq[PartitionReplicas]) = {
     val brokerToLeaderIsrRequest = new util.HashMap[Broker, java.util.List[LeaderAndReplicas]]()
     leaderAndReplicas.foreach(lr ⇒ {
       lr.partitionStateInfo.allReplicas.foreach(broker ⇒ {
@@ -96,7 +99,7 @@ class MyController(val zookeeperClient: MyZookeeperClient, val brokerId: Int, so
     })
 
     val brokers = brokerToLeaderIsrRequest.keySet().asScala
-    for(broker ← brokers) {
+    for (broker ← brokers) {
       val leaderAndReplicas: java.util.List[LeaderAndReplicas] = brokerToLeaderIsrRequest.get(broker)
       val leaderAndReplicaRequest = LeaderAndReplicaRequest(leaderAndReplicas.asScala.toList)
       val request = RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndReplicaRequest), correlationId.getAndIncrement())
