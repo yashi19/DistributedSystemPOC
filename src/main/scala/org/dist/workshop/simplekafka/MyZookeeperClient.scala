@@ -33,6 +33,10 @@ trait MyZookeeperClient {
   def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas]
 
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
+
+  def shutdown()
+
+  def registerSelf()
 }
 
 class MyZookeeperClientImpl(config: Config) extends MyZookeeperClient {
@@ -138,5 +142,12 @@ class MyZookeeperClientImpl(config: Config) extends MyZookeeperClient {
     createPersistentPath(zkClient, topicsPath, topicsData)
   }
 
+  override def shutdown(): Unit = {
+    zkClient.close()
+  }
 
+  override def registerSelf(): Unit = {
+    val broker = Broker(config.brokerId, config.hostName, config.port)
+    registerBroker(broker)
+  }
 }
